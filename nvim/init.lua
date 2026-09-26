@@ -5,7 +5,7 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.opt`
@@ -41,7 +41,6 @@ vim.opt.breakindent = true
 -- Save undo history
 vim.opt.swapfile = false
 vim.opt.backup = false
-vim.opt.undodir = os.getenv 'HOME' .. '/.vim/undodir'
 vim.opt.undofile = true
 
 -- Case-insensitive searching UNLESS \C or one or more capital letters in the search term
@@ -70,6 +69,8 @@ vim.opt.splitbelow = true
 -- Sets how neovim will display certain whitespace characters in the editor.
 --  See `:help 'list'`
 --  and `:help 'listchars'`
+-- Show tabs as 2 columns wide; with the listchars below each tab renders as `<>`
+vim.opt.tabstop = 2
 vim.opt.list = true
 vim.opt.listchars = { tab = '< >', trail = '~', nbsp = '␣' }
 
@@ -143,7 +144,7 @@ vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the down wind
 
 vim.keymap.set('n', '<leader>s', '<C-w>v', { desc = '[V]ertical [S]plit' })
 vim.keymap.set('n', '<leader>q', ':close<CR>', { desc = '[C]lose [W]indow' })
-vim.keymap.set('n', '<leader>e', '<C-w>v <CMD>Oil .<CR>', { desc = '[O]pen [W]orking [D]irectory' })
+vim.keymap.set('n', '<leader>e', '<C-w>v<CMD>Oil .<CR>', { desc = '[O]pen [W]orking [D]irectory' })
 vim.keymap.set('n', '<C-n>', ':vnew<CR>', { desc = '[N]ew [W]indow' })
 
 -- [[ Basic Autocommands ]]
@@ -151,12 +152,12 @@ vim.keymap.set('n', '<C-n>', ':vnew<CR>', { desc = '[N]ew [W]indow' })
 
 -- Highlight when yanking (copying) text
 --  Try it with `yap` in normal mode
---  See `:help vim.highlight.on_yank()`
+--  See `:help vim.hl.on_yank()`
 vim.api.nvim_create_autocmd('TextYankPost', {
   desc = 'Highlight when yanking (copying) text',
   group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
   callback = function()
-    vim.highlight.on_yank()
+    vim.hl.on_yank()
   end,
 })
 
@@ -209,17 +210,10 @@ require('lazy').setup {
   },
   -- Theme
   {
-    'bluz71/vim-moonfly-colors',
-    name = 'moonfly',
+    'ficcdaf/ashen.nvim',
+    priority = 1000,
     config = function()
-      local moonfly = require 'moonfly'
-
-      moonfly.custom_colors {
-        bg = '#000000',
-      }
-
-      vim.cmd.colorscheme 'moonfly'
-      vim.cmd.highlight 'WinSeparator guibg=None'
+      vim.cmd.colorscheme 'ashen'
     end,
   },
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
@@ -269,10 +263,11 @@ require('lazy').setup {
             gitsigns.reset_hunk { vim.fn.line '.', vim.fn.line 'v' }
           end, { desc = 'git [r]eset hunk' })
           -- normal mode
-          map('n', '<leadeu>gs', gitsigns.stage_hunk, { desc = 'git [s]tage hunk' })
+          -- <leader>gs is Telescope git_status, so staging lives on <leader>ga ("git add")
+          map('n', '<leader>ga', gitsigns.stage_hunk, { desc = 'git [a]dd (stage/unstage) hunk' })
           map('n', '<leader>gr', gitsigns.reset_hunk, { desc = 'git [r]eset hunk' })
           map('n', '<leader>gS', gitsigns.stage_buffer, { desc = 'git [S]tage buffer' })
-          map('n', '<leader>gu', gitsigns.stage_hunk, { desc = 'git [u]ndo stage hunk' })
+          map('n', '<leader>gu', gitsigns.reset_buffer_index, { desc = 'git [u]nstage buffer' })
           map('n', '<leader>gR', gitsigns.reset_buffer, { desc = 'git [R]eset buffer' })
           map('n', '<leader>gp', gitsigns.preview_hunk, { desc = 'git [p]review hunk' })
           map('n', '<leader>gb', gitsigns.blame_line, { desc = 'git [b]lame line' })
@@ -290,9 +285,8 @@ require('lazy').setup {
   { -- Fuzzy Finder (files, lsp, etc)
     'nvim-telescope/telescope.nvim',
     event = 'VimEnter',
-    branch = '0.1.x',
     dependencies = {
-      'nvik-lua/plenary.nvim',
+      'nvim-lua/plenary.nvim',
       { -- If encountering errors, see telescope-fzf-native README for installation instructions
         'nvim-telescope/telescope-fzf-native.nvim',
 
@@ -387,8 +381,8 @@ require('lazy').setup {
       -- Automatically install LSPs and related tools to stdpath for Neovim
       -- Mason must be loaded before its dependents so we need to set it up here.
       -- NOTE: `opts = {}` is the same as calling `require('mason').setup({})`
-      { 'williamboman/mason.nvim', opts = {} },
-      'williamboman/mason-lspconfig.nvim',
+      { 'mason-org/mason.nvim', opts = {} },
+      'mason-org/mason-lspconfig.nvim',
       'WhoIsSethDaniel/mason-tool-installer.nvim',
 
       -- Useful status updates for LSP.
@@ -477,26 +471,13 @@ require('lazy').setup {
           --  For example, in C this would take you to the header.
           map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
 
-          -- This function resolves a difference between neovim nightly (version 0.11) and stable (version 0.10)
-          ---@param client vim.lsp.Client
-          ---@param method vim.lsp.protocol.Method
-          ---@param bufnr? integer some lsp support methods only in specific files
-          ---@return boolean
-          local function client_supports_method(client, method, bufnr)
-            if vim.fn.has 'nvim-0.11' == 1 then
-              return client:supports_method(method, bufnr)
-            else
-              return client.supports_method(method, { bufnr = bufnr })
-            end
-          end
-
           -- The following two autocommands are used to highlight references of the
           -- word under your cursor when your cursor rests there for a little while.
           --    See `:help CursorHold` for information about when this is executed
           --
           -- When you move your cursor, the highlights will be cleared (the second autocommand).
           local client = vim.lsp.get_client_by_id(event.data.client_id)
-          if client and client_supports_method(client, vim.lsp.protocol.Methods.textDocument_documentHighlight, event.buf) then
+          if client and client:supports_method(vim.lsp.protocol.Methods.textDocument_documentHighlight, event.buf) then
             local highlight_augroup = vim.api.nvim_create_augroup('kickstart-lsp-highlight', { clear = false })
             vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
               buffer = event.buf,
@@ -523,7 +504,7 @@ require('lazy').setup {
           -- code, if the language server you are using supports them
           --
           -- This may be unwanted, since they displace some of your code
-          if client and client_supports_method(client, vim.lsp.protocol.Methods.textDocument_inlayHint, event.buf) then
+          if client and client:supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint, event.buf) then
             map('<leader>th', function()
               vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf })
             end, '[T]oggle Inlay [H]ints')
@@ -555,9 +536,8 @@ require('lazy').setup {
       -- LSP servers and clients are able to communicate to each other what features they support.
       --  By default, Neovim doesn't support everything that is in the LSP specification.
       --  When you add nvim-cmp, luasnip, etc. Neovim now has *more* capabilities.
-      --  So, we create new capabilities with nvim cmp, and then broadcast that to the servers.
-      local capabilities = vim.lsp.protocol.make_client_capabilities()
-      capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
+      --  So, we create new capabilities with nvim cmp, and then broadcast that to all servers.
+      vim.lsp.config('*', { capabilities = require('cmp_nvim_lsp').default_capabilities() })
 
       -- Enable the following language servers
       --  Feel free to add/remove any LSPs that you want here. They will automatically be installed.
@@ -572,7 +552,6 @@ require('lazy').setup {
         -- clangd = {},
         -- gopls = {},
         -- pyright = {},
-        cspell = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
         -- Some languages (like typescript) have entire language plugins that can be useful:
@@ -595,12 +574,9 @@ require('lazy').setup {
                 command = '_typescript.organizeImports',
                 arguments = { vim.api.nvim_buf_get_name(bufnr) },
               }, { bufnr = bufnr })
-            end, { desc = '[O]ranize [I]mports' })
+            end, { buffer = bufnr, desc = '[O]rganize [I]mports' })
           end,
         },
-        prettierd = {},
-        eslint_d = {},
-        --
         lua_ls = {
           -- cmd = { ... },
           -- filetypes = { ... },
@@ -633,24 +609,22 @@ require('lazy').setup {
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
+        'prettierd', -- Used to format JS/TS
+        'eslint_d', -- Used to lint/fix JS/TS
+        'cspell', -- Used by cspell.nvim (none-ls)
       })
       require('mason-tool-installer').setup {
         ensure_installed = ensure_installed,
       }
 
+      -- Merge the overrides above on top of nvim-lspconfig's defaults
+      for server_name, server in pairs(servers) do
+        vim.lsp.config(server_name, server)
+      end
+
       require('mason-lspconfig').setup {
         ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
-        automatic_installation = false,
-        handlers = {
-          function(server_name)
-            local server = servers[server_name] or {}
-            -- This handles overriding only values explicitly passed
-            -- by the server configuration above. Useful when disabling
-            -- certain features of an LSP (for example, turning of formatting for ts_ls)
-            server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-            require('lspconfig')[server_name].setup(server)
-          end,
-        },
+        automatic_enable = vim.tbl_keys(servers), -- vim.lsp.enable() these once mason has installed them
       }
     end,
   },
@@ -852,9 +826,14 @@ require('lazy').setup {
       -- Simple and easy statusline.
       --  You could remove this setup call if you don't like it,
       --  and try some other statusline plugin
+      -- Nerd Font icons for oil, statusline, etc. Also stands in for
+      -- nvim-web-devicons so telescope gets icons too.
+      require('mini.icons').setup()
+      MiniIcons.mock_nvim_web_devicons()
+
       local statusline = require 'mini.statusline'
       -- set use_icons to true if you have a Nerd Font
-      -- statusline.setup { use_icons = vim.g.have_nerd_font }
+      statusline.setup { use_icons = vim.g.have_nerd_font }
 
       -- You can configure sections in the statusline by overriding their
       -- default behavior. For example, here we set the section for
@@ -870,11 +849,15 @@ require('lazy').setup {
   },
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
+    branch = 'main',
+    lazy = false, -- nvim-treesitter does not support lazy-loading
     build = ':TSUpdate',
-    main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
-    opts = {
-      ensure_installed = {
+    -- Parsers are compiled with the `tree-sitter` CLI; highlighting and indent
+    -- are started per buffer by the FileType autocmd below.
+    config = function()
+      local ts = require 'nvim-treesitter'
+      ts.install {
         'bash',
         'c',
         'diff',
@@ -886,17 +869,39 @@ require('lazy').setup {
         'query',
         'vim',
         'vimdoc',
-      },
-      -- Autoinstall languages that are not installed
-      auto_install = true,
-      highlight = {
-        enable = false,
-        -- Some languages depend on vim's regex highlighting system (such as Ruby) for indent rules.
-        --  If you are experiencing weird indenting issues, add the language to
-        --  the list of additional_vim_regex_highlighting and disabled languages for indent. additional_vim_regex_highlighting = { 'ruby' },
-      },
-      indent = { enable = true, disable = { 'ruby' } },
-    },
+        'javascript',
+        'typescript',
+        'tsx',
+        'json',
+      }
+
+      -- Languages that keep Vim's regex-based indent instead of treesitter's
+      local indent_disable = { ruby = true }
+
+      vim.api.nvim_create_autocmd('FileType', {
+        group = vim.api.nvim_create_augroup('treesitter-start', { clear = true }),
+        callback = function(args)
+          local lang = vim.treesitter.language.get_lang(args.match)
+          if not lang then
+            return
+          end
+          local function start()
+            if not vim.api.nvim_buf_is_valid(args.buf) or not pcall(vim.treesitter.start, args.buf, lang) then
+              return
+            end
+            if not indent_disable[lang] then
+              vim.bo[args.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+            end
+          end
+          if vim.list_contains(ts.get_installed(), lang) then
+            start()
+          elseif vim.list_contains(ts.get_available(), lang) then
+            -- Autoinstall languages that are not installed
+            ts.install(lang):await(vim.schedule_wrap(start))
+          end
+        end,
+      })
+    end,
     -- There are additional nvim-treesitter modules that you can use to interact
     -- with nvim-treesitter. You should go explore a few and see what interests you:
     --
