@@ -577,6 +577,15 @@ require('lazy').setup {
             end, { buffer = bufnr, desc = '[O]rganize [I]mports' })
           end,
         },
+        rust_analyzer = {
+          settings = {
+            ['rust-analyzer'] = {
+              -- Run clippy instead of `cargo check` on save
+              check = { command = 'clippy' },
+              cargo = { allFeatures = true },
+            },
+          },
+        },
         lua_ls = {
           -- cmd = { ... },
           -- filetypes = { ... },
@@ -647,6 +656,7 @@ require('lazy').setup {
       notify_on_error = false,
       formatters_by_ft = {
         lua = { 'stylua' },
+        rust = { 'rustfmt' }, -- Comes with the Rust toolchain
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
@@ -873,6 +883,8 @@ require('lazy').setup {
         'typescript',
         'tsx',
         'json',
+        'rust',
+        'toml',
       }
 
       -- Languages that keep Vim's regex-based indent instead of treesitter's
