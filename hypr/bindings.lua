@@ -53,12 +53,3 @@ o.bind("SUPER + SHIFT + S", "Screenshot region", "omarchy-capture-screenshot reg
 -- Close window on SUPER+Q instead of SUPER+W (too close to Chrome's CTRL+W tab close)
 hl.unbind("SUPER + W")
 o.bind("SUPER + Q", "Close window", hl.dsp.window.close())
-
--- Universal select all, alongside Omarchy's SUPER+C/V/X. Same down/up split as
--- default/hypr/bindings/clipboard.lua to avoid stuck synthetic keys.
-o.bind("SUPER + A", "Universal select all", function()
-  hl.dispatch(hl.dsp.send_key_state({ mods = "CTRL", key = "A", state = "down" }))
-  hl.timer(function()
-    hl.dispatch(hl.dsp.send_key_state({ mods = "CTRL", key = "A", state = "up" }))
-  end, { timeout = 50, type = "oneshot" })
-end)
